@@ -28,6 +28,11 @@ def _short_preview(text: str, limit: int = 96) -> str:
     return f"{clean_text[: limit - 1]}…"
 
 
+def _set_detector_input(text: str) -> None:
+    st.session_state.detector_input = text
+    st.session_state.pop("latest_result", None)
+
+
 def _render_hero() -> None:
     st.markdown(
         """
@@ -148,10 +153,12 @@ def render_detector_page() -> None:
             f"Stored labels: actual `{selected_example['actualLabel']}`, predicted "
             f"`{selected_example['predictedLabel']}`"
         )
-        if demo_columns[1].button("Load selected example", use_container_width=True):
-            st.session_state.detector_input = selected_example["text"]
-            st.session_state.pop("latest_result", None)
-            st.experimental_rerun()
+        demo_columns[1].button(
+            "Load selected example",
+            use_container_width=True,
+            on_click=_set_detector_input,
+            args=(selected_example["text"],),
+        )
 
     input_text = st.text_area(
         "Article text",
@@ -181,12 +188,12 @@ def render_detector_page() -> None:
         use_container_width=True,
         disabled=not bool(model_status["ready"]),
     )
-    clear_clicked = action_columns[1].button("Clear", use_container_width=True)
-
-    if clear_clicked:
-        st.session_state.detector_input = ""
-        st.session_state.pop("latest_result", None)
-        st.experimental_rerun()
+    action_columns[1].button(
+        "Clear",
+        use_container_width=True,
+        on_click=_set_detector_input,
+        args=("",),
+    )
 
     if analyze_clicked:
         validation_result = validate_input(input_text)

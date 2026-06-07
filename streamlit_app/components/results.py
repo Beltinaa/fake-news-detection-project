@@ -92,7 +92,9 @@ def _render_figure(path: Path, title: str, interpretation: str) -> None:
         return
 
     st.markdown(f"**{title}**")
-    st.image(str(path), use_column_width=True)
+    image_columns = st.columns([0.08, 0.84, 0.08])
+    with image_columns[1]:
+        st.image(str(path), use_column_width=True)
     st.caption(interpretation)
 
 
