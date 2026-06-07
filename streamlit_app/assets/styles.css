@@ -33,6 +33,16 @@ body,
   color: #f8fafc;
 }
 
+[data-testid="stSidebar"] code {
+  background: #fce7f3;
+  border: 1px solid rgba(244, 114, 182, 0.35);
+  border-radius: 999px;
+  color: #0f172a !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.14rem 0.45rem;
+}
+
 [data-testid="stSidebar"] .stRadio label {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
