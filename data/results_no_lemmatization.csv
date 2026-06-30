@@ -1,0 +1,6 @@
+,Accuracy,F1,Precision,Recall,AUC
+Linear SVM,0.9634,0.9634,0.9635,0.9634,0.9936
+MLP Neural Network,0.9574,0.9574,0.9574,0.9574,0.9909
+Logistic Regression,0.949,0.9489,0.9491,0.949,0.9877
+Random Forest,0.9408,0.9407,0.941,0.9408,0.9889
+Naive Bayes,0.8681,0.8681,0.8681,0.8681,0.94
