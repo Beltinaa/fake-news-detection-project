@@ -13,21 +13,36 @@ Practical Bachelor thesis repository for:
 
 TruthLens studies whether classical Machine Learning and Natural Language Processing techniques can
 classify English-language news text from the WELFake benchmark dataset as `REAL` or `FAKE`. The
-practical objective is to compare multiple TF-IDF-based models and deploy the best-performing saved
-classifier in a Streamlit application for academic demonstration.
+practical objective is to compare five TF-IDF-based models (four classical plus one neural network)
+and deploy the best-performing saved classifier in a Streamlit application for academic
+demonstration. An additional ablation study evaluates the impact of Stanza lemmatization on all
+five models.
 
 ## Academic source of truth
 
-The executed notebook [notebooks/eda.ipynb](/Users/beltinaa/fake-news-detection-thesis/notebooks/eda.ipynb)
+The executed notebook [notebooks/eda.ipynb](notebooks/eda.ipynb)
 is the experiment source of truth for:
 
 - data cleaning
 - label usage
 - train/test split
 - TF-IDF configuration
-- model training
+- model training (Logistic Regression, Naive Bayes, Linear SVM, Random Forest)
 - saved artifact filenames
 - reported evaluation outputs
+
+[notebooks/mlp_model.ipynb](notebooks/mlp_model.ipynb) is the source of truth for:
+
+- MLP Neural Network training and evaluation
+- chi² feature selection (30,000 features)
+- MLP hyperparameters
+
+[notebooks/lemmatizer_comparison.ipynb](notebooks/lemmatizer_comparison.ipynb) is the source of
+truth for:
+
+- Stanza lemmatization pipeline
+- lemmatized TF-IDF vectorizer
+- with-lemmatization results for all five models
 
 The production application does **not** retrain at startup. It loads the saved artifacts:
 
@@ -93,24 +108,80 @@ Verified training matrix shape:
 2. Multinomial Naive Bayes
 3. Linear SVM using `LinearSVC`
 4. Random Forest
+5. MLP Neural Network (with chi² feature selection, k=30,000)
 
-## Verified results
+## Verified results — without lemmatization
 
-| Model | Accuracy | Approximate F1-score | Interpretation |
-| --- | ---: | ---: | --- |
-| Linear SVM | 96.34% | 0.96 | Best-performing model |
-| Logistic Regression | 94.90% | 0.95 | Strong linear baseline |
-| Random Forest | 94.08% | 0.94 | Competitive ensemble model |
-| Naive Bayes | 86.81% | 0.87 | Fast but weaker |
+| Model              | Accuracy | F1-score | AUC   | Interpretation              |
+|--------------------|--------: |---------:|------:|-----------------------------|
+| Linear SVM         | 96.34%   | 0.9634   | 0.994 | Best-performing model       |
+| MLP Neural Network | 95.74%   | 0.9574   | 0.991 | Second-best, neural network |
+| Logistic Regression| 94.90%   | 0.9489   | 0.988 | Strong linear baseline      |
+| Random Forest      | 94.08%   | 0.9407   | 0.989 | Competitive ensemble model  |
+| Naive Bayes        | 86.81%   | 0.8681   | 0.940 | Fast but weaker             |
 
-Exact saved-model / notebook-aligned accuracy values:
+Exact notebook-aligned accuracy values:
 
 - Logistic Regression: `0.9489562382966918`
 - Naive Bayes: `0.8680907136417227`
 - Linear SVM: `0.9633816492128442`
 - Random Forest: `0.9407725917192593`
+- MLP Neural Network: `0.9574172966225120`
 
-Verified Linear SVM confusion matrix with the confirmed class order `[0, 1] = [REAL, FAKE]`:
+## Verified results — with Stanza lemmatization
+
+All five models were retrained on lemmatized text using the same train/test split and
+hyperparameters. Results:
+
+| Model              | Accuracy (no lemma) | Accuracy (lemma) | Δ Accuracy | AUC (lemma) |
+|--------------------|--------------------:|-----------------:|-----------:|------------:|
+| Linear SVM         | 0.9634              | **0.9739**       | +0.0105    | 0.997       |
+| MLP Neural Network | 0.9574              | **0.9678**       | +0.0104    | 0.995       |
+| Logistic Regression| 0.9490              | **0.9619**       | +0.0129    | 0.993       |
+| Random Forest      | 0.9408              | **0.9505**       | +0.0097    | 0.991       |
+| Naive Bayes        | 0.8681              | **0.8774**       | +0.0093    | 0.948       |
+
+Lemmatization improves all five models consistently (~+1.06 pp average Accuracy gain) with no
+metric regressions. Lemmatized artifacts are saved separately and do not overwrite the primary
+pipeline artifacts.
+
+## Model configurations
+
+```python
+# Logistic Regression
+LogisticRegression(max_iter=1000, random_state=42)
+
+# Multinomial Naive Bayes
+MultinomialNB()
+
+# Linear SVM
+LinearSVC(random_state=42)
+
+# Random Forest
+RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
+
+# MLP Neural Network (after chi² feature selection, k=30000)
+MLPClassifier(
+    hidden_layer_sizes=(128, 64),
+    activation='relu',
+    solver='adam',
+    alpha=0.0003,
+    batch_size=512,
+    learning_rate='adaptive',
+    learning_rate_init=0.002,
+    max_iter=40,
+    early_stopping=True,
+    validation_fraction=0.1,
+    n_iter_no_change=4,
+    random_state=42
+)
+```
+
+MLP training converged after **7 iterations** (early stopping) with final training loss `0.002972`.
+
+## Verified Linear SVM confusion matrix
+
+Class order confirmed as `[0, 1] = [REAL, FAKE]`:
 
 ```text
 [[6691  315]
@@ -123,6 +194,15 @@ Interpreted by label:
 - `315` REAL articles classified as FAKE
 - `213` FAKE articles classified as REAL
 - `7200` FAKE articles correctly classified as FAKE
+
+## MLP confusion matrix
+
+Class order `[0, 1] = [REAL, FAKE]`:
+
+```text
+[[6702  304]
+ [ 310 7103]]
+```
 
 ## Label-mapping verification
 
@@ -238,9 +318,23 @@ User text
 ```text
 fake-news-detection-thesis/
 ├── data/
+│   ├── raw/                        # WELFake_Dataset.csv (not tracked by Git)
+│   ├── processed/                  # welfake_clean.csv, welfake_lemmatized.csv
+│   └── splits/                     # X_train, X_test, y_train, y_test CSV files
 ├── figures/
 ├── models/
+│   ├── tfidf_vectorizer.pkl        # Primary TF-IDF vectorizer (all 4 classical models)
+│   ├── linear_svm.pkl
+│   ├── logistic_regression.pkl
+│   ├── naive_bayes.pkl
+│   ├── random_forest.pkl
+│   ├── mlp_model.pkl               # MLP Neural Network
+│   ├── chi2_selector_mlp.pkl       # chi² feature selector for MLP
+│   └── tfidf_vectorizer_lemmatized.pkl  # Separate vectorizer for lemmatized pipeline
 ├── notebooks/
+│   ├── eda.ipynb                   # Primary pipeline: 4 classical models
+│   ├── mlp_model.ipynb             # MLP Neural Network
+│   └── lemmatizer_comparison.ipynb # Stanza lemmatization ablation study
 ├── src/
 │   ├── audit_model_consistency.py
 │   ├── consistency_utils.py
@@ -259,6 +353,14 @@ fake-news-detection-thesis/
 └── requirements.txt
 ```
 
+## Notebook execution order
+
+Execute notebooks in this order for full reproducibility:
+
+1. `notebooks/eda.ipynb` — data cleaning, TF-IDF, 4 classical models, saves splits and vectorizer
+2. `notebooks/mlp_model.ipynb` — MLP training (requires splits and vectorizer from step 1)
+3. `notebooks/lemmatizer_comparison.ipynb` — lemmatization ablation (requires splits from step 1)
+
 ## Environment setup
 
 From the repository root:
@@ -271,17 +373,7 @@ pip install -r requirements.txt
 Use the repository virtual environment so the saved `scikit-learn==1.3.0` artifacts remain
 compatible with the loading environment.
 
-## How to run the notebook
-
-Open and execute:
-
-```text
-notebooks/eda.ipynb
-```
-
 ## How to run the model-consistency audit
-
-From the repository root:
 
 ```bash
 source venv/bin/activate
@@ -290,8 +382,6 @@ python src/audit_model_consistency.py
 
 ## How to refresh demo examples
 
-From the repository root:
-
 ```bash
 source venv/bin/activate
 python src/extract_demo_examples.py
@@ -299,16 +389,12 @@ python src/extract_demo_examples.py
 
 ## How to run the Streamlit application
 
-From the repository root:
-
 ```bash
 source venv/bin/activate
 streamlit run streamlit_app/app.py
 ```
 
 ## How to run tests
-
-From the repository root:
 
 ```bash
 source venv/bin/activate
@@ -327,6 +413,9 @@ The repository also preserves:
 - `models/logistic_regression.pkl`
 - `models/naive_bayes.pkl`
 - `models/random_forest.pkl`
+- `models/mlp_model.pkl`
+- `models/chi2_selector_mlp.pkl`
+- `models/tfidf_vectorizer_lemmatized.pkl`
 
 ## Dataset availability
 
@@ -335,22 +424,26 @@ These research files are preserved locally but ignored by Git.
 
 ## Reproducibility information
 
-- Use the notebook outputs as the source of truth.
-- Use `scikit-learn==1.3.0` for compatibility with the saved `.pkl` artifacts.
-- Keep the label mapping fixed as `0 = REAL`, `1 = FAKE`.
-- Keep training and deployment separate.
-- Do not overwrite the saved model binaries.
+- Execute notebooks in order: `eda.ipynb` → `mlp_model.ipynb` → `lemmatizer_comparison.ipynb`
+- Use `scikit-learn==1.3.0` for compatibility with the saved `.pkl` artifacts
+- Keep the label mapping fixed as `0 = REAL`, `1 = FAKE`
+- Keep training and deployment separate
+- Do not overwrite the saved model binaries
+- The lemmatization step (~72,000 articles via Stanza on CPU) takes approximately 2 hours;
+  checkpointing saves progress every 2,000 rows to `data/processed/welfake_lemmatized_partial.csv`
 
 ## Limitations
 
 - Trained on English-language data only
 - Binary REAL/FAKE classification only
-- Possible source bias in WELFake
+- Evaluated on a single train/test split (random_state=42); cross-validation not performed
+- Possible source bias in WELFake (aggregated from Kaggle, McIntire, Reuters, BuzzFeed)
 - Possible topic bias in WELFake
 - Learns dataset patterns rather than objective truth
 - No external evidence retrieval
 - No source-authority verification
 - No live fact-checking
+- No statistical significance testing for performance differences between models
 - Decision-strength estimate is derived from the Linear SVM margin and is **not** a calibrated probability
 
 ## Academic disclaimer
