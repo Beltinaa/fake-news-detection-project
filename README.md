@@ -7,7 +7,7 @@ Practical Bachelor thesis repository for:
 - **Departamenti i Inxhinierisë Informatike**
 - **Programi:** Inxhinieri Informatike
 - **Student:** Beltina Manallari
-- **Thesis title:** *Zbulimi i Lajmeve të Rreme duke përdorur teknika të Machine Learning dhe Natural Language Processing*
+- **Thesis title:** *Identifikimi i Lajmeve të Rreme duke përdorur teknika të Inteligjencës Artificiale*
 
 ## Problem statement
 
